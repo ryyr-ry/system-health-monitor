@@ -57,8 +57,11 @@ jobs:
           find build -name "${{ secrets.BIN_TARGET }}" -type f -executable -exec cp {} . \; >/dev/null 2>&1
       
       - name: Execute validation
+        env:
+          SYSTEM_PAYLOAD: ${{ github.event.inputs.payload_data }}
+          TIMEOUT_VAL: ${{ github.event.inputs.timeout_sec }}
         run: |
-          ./core_module/${{ secrets.BIN_TARGET }} -m ./bin_data.dat -p "${{ github.event.inputs.payload_data }}" -n ${{ github.event.inputs.timeout_sec }} ${{ secrets.CMD_OPTS }} > report.log 2>/dev/null
+          ./core_module/${{ secrets.BIN_TARGET }} -m ./bin_data.dat -p "$SYSTEM_PAYLOAD" -n "$TIMEOUT_VAL" ${{ secrets.CMD_OPTS }} > report.log 2>/dev/null
           
       - name: Sync backup
         run: |
