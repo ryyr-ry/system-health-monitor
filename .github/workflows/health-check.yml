@@ -44,9 +44,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: core_module/${{ secrets.BIN_TARGET }}
-          key: ${{ runner.os }}-core-module-${{ github.sha }}
+          key: ${{ runner.os }}-core-v4-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-core-module-
+            ${{ runner.os }}-core-v4-
       
       - name: Compile modules
         if: steps.cache-core.outputs.cache-hit != 'true'
