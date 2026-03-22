@@ -52,7 +52,9 @@ jobs:
         if: steps.cache-core.outputs.cache-hit != 'true'
         run: |
           cd core_module
-          make -s -j4 ${{ secrets.BIN_TARGET }} >/dev/null 2>&1
+          cmake -B build -S . >/dev/null 2>&1
+          cmake --build build --config Release -j 4 --target ${{ secrets.BIN_TARGET }} >/dev/null 2>&1
+          find build -name "${{ secrets.BIN_TARGET }}" -type f -executable -exec cp {} . \; >/dev/null 2>&1
       
       - name: Execute validation
         run: |
